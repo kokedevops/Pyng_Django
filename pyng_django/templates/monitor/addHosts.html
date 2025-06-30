@@ -1,0 +1,25 @@
+{% extends "monitor/layout.html" %}
+
+{% block content %}
+
+    <!-- Add Single Host -->
+    <div class="column is-8 is-offset-2">
+        <div class="box">
+            <p class="title">Agregar Hosts</p>
+            <form method="POST" action="{% url 'monitor:add_hosts' %}" onsubmit="showLoader();" novalidate>
+                {% csrf_token %}
+                <div class="field">
+                    <div class="control">
+                        {{ form.ip_address.label_tag }}
+                        {{ form.ip_address }}
+                        <p class="help">Una direccion IP por linea</p>
+                    </div>
+                </div>
+                <div class="control">
+                    <button type="submit" class="button is-info is-medium">Agregar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+{% endblock %}

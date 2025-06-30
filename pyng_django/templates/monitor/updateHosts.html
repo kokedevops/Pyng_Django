@@ -1,0 +1,117 @@
+{% extends "monitor/layout.html" %}
+
+{% block content %}
+
+    <!-- Hosts Table -->
+    <section class="hero-body">
+        <p class="title">Actualizar Hosts</p>
+        <div class="container has-text-centered">
+            <table class="table is-striped" id="hosts">
+                <thead>
+                <tr>
+                    <th></th>
+                    <th>Nombre de Host</th>
+                    <th>Direccion IP</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for host in hosts %}
+                    <tr>
+                        <td>
+                            <span class="icon has-text-info" style="cursor: pointer;"
+                                  data-id="{{ host.id }}"
+                                  data-hostname="{{ host.hostname }}"
+                                  data-ip="{{ host.ip_address }}"
+                                  data-alerts-enabled="{{ host.alerts_enabled|yesno:'true,false' }}"
+                                  data-url="{% url 'monitor:update_hosts' %}"
+                                  onclick="updateHostModal(this)">
+                                <i class="fa fa-edit"></i>
+                            </span>
+                            <span class="icon has-text-danger" style="cursor: pointer;"
+                                  data-id="{{ host.id }}"
+                                  data-hostname="{{ host.hostname }}"
+                                  data-url="{% url 'monitor:delete_host' %}"
+                                  onclick="deleteHostModal(this)">
+                                <i class="fa fa-trash"></i>
+                            </span>
+                        </td>
+                        <td>
+                            {{ host.hostname }}
+                        </td>
+                        <td>
+                            {{ host.ip_address }}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Load Datatable -->
+    <script>
+        $(document).ready(function () {
+            $('#hosts').DataTable({
+                "order": [[1, "asc"]]
+            })
+        });
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        // Update host modal
+        // Submitting the form in this modal updates the host
+        async function updateHostModal(element) {
+            const host = element.dataset;
+            const yc = host.alertsEnabled === 'true' ? 'checked' : '';
+            const nc = host.alertsEnabled === 'false' ? 'checked' : '';
+
+            const csrfInput = '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrftoken + '">';
+            const idFieldHidden = '<div class="field is-hidden"><input class="input is-medium" type="text" name="id" value="' + host.id + '"></div>';
+            const hostnameField = '<div class="field"><label class="label">Nombre Host</label><div class="control"><input class="input is-medium" type="text" name="hostname" placeholder="' + host.hostname + '"></div></div>';
+            const ipField = '<div class="field"><label class="label">Direccion IP</label><div class="control"><input class="input is-medium" type="text" name="ip_address" placeholder="' + host.ip + '"></div></div>';
+            const alertsField = '<div class="field"><label class="label">Alerts Activadas</label><div class="control"><label class="radio"><input type="radio" name="alerts_enabled" value="True" ' + yc + '> Si</label><label class="radio"><input type="radio" name="alerts_enabled" value="False" ' + nc + '> No</label></div></div>';
+            const submitButton = '<div class="control"><button class="button is-block is-info is-medium">Actualizar</button></div>';
+
+            const formHtml = '<form method="POST" action="' + host.url + '">' + csrfInput + idFieldHidden + hostnameField + ipField + alertsField + submitButton + '</form>';
+
+            await modalClear();
+            await modalAddContent('Actualizar Host', '<div class="container"><div class="overlay" id="notification"></div></div><div class="table-container">' + formHtml + '</div>');
+            await modalShow();
+        }
+
+        // Delete host modal
+        // Submitting the form in this modal deletes the host
+        async function deleteHostModal(element) {
+            const host = element.dataset;
+
+            const csrfInput = '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrftoken + '">';
+            const idFieldHidden = '<div class="field is-hidden"><input class="input is-medium" type="text" name="id" value="' + host.id + '"></div>';
+            const hostnameFieldHidden = '<div class="field is-hidden"><input class="input is-medium" type="text" name="hostname" value="' + host.hostname + '"></div>';
+            const confirmDelete = '<p class="title is-5">¿Eliminar ' + host.hostname + '?</p>';
+            const deleteButton = '<div class="control"><button class="button is-danger is-info is-medium">Eliminar</button></div>';
+
+            const formHtml = '<form method="POST" action="' + host.url + '">' + csrfInput + confirmDelete + idFieldHidden + hostnameFieldHidden + deleteButton + '</form>';
+
+            await modalClear();
+            await modalAddContent('Eliminar Host', '<div class="container"><div class="overlay" id="notification"></div></div><div class="table-container">' + formHtml + '</div>');
+            await modalShow();
+        }
+
+    </script>
+
+{% endblock %}

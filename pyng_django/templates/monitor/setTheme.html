@@ -1,0 +1,27 @@
+{% extends "monitor/layout.html" %}
+
+{% block content %}
+
+    <div class="column is-8 is-offset-2">
+        <div class="box">
+            <p class="title">Definir Tema</p>
+            <form method="POST" action="{% url 'monitor:set_theme' %}">
+                {% csrf_token %}
+                <div class="field">
+                    <label class="label">{{ form.id.label }}</label>
+                    <div class="control">
+                        <div class="select is-large">
+                            {{ form.id }}
+                        </div>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="control">
+                        <button class="button is-info is-medium">Actualizar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+{% endblock %}
