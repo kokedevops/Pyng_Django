@@ -1,2 +1,4 @@
 Django
 password-strength
+psycopg2-binary
+python-decouple

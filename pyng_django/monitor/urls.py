@@ -28,6 +28,10 @@ urlpatterns = [
     path('configureSMTP/', views.configure_smtp, name='configure_smtp'),
     path('smtpTest/', views.smtp_test, name='smtp_test'),
 
+    # Gestión de usuarios
+    path('createUser/', views.create_user_view, name='create_user'),
+    path('listUsers/', views.list_users_view, name='list_users'),
+
     # API
     path('api/hosts', api_views.get_all_hosts, name='api_get_all_hosts'),
     path('api/host_counts', api_views.get_host_counts, name='api_get_host_counts'),

@@ -57,22 +57,52 @@ class FirstTimeSetupForm(forms.Form):
         widget=forms.TextInput(attrs={'class': 'input is-large'}),
         label='Nombre de usuario'
     )
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={'class': 'input is-large'}),
+        label='Correo electrónico'
+    )
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'input is-large'}),
-        label='Contraseña'
+        label='Contraseña',
+        help_text='Mínimo 8 caracteres, 1 mayúscula, 2 caracteres especiales'
     )
-    confirm_password = forms.CharField(
+    verify_password = forms.CharField(
         widget=forms.PasswordInput(attrs={'class': 'input is-large'}),
         label='Confirmar contraseña'
+    )
+    poll_interval = forms.IntegerField(
+        initial=60,
+        widget=forms.NumberInput(attrs={'class': 'input is-large'}),
+        label='Intervalo de monitoreo (segundos)'
+    )
+    retention_days = forms.IntegerField(
+        initial=10,
+        widget=forms.NumberInput(attrs={'class': 'input is-large'}),
+        label='Días de retención del historial'
+    )
+    smtp_server = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'input is-large'}),
+        label='Servidor SMTP (opcional)'
+    )
+    smtp_port = forms.IntegerField(
+        required=False,
+        widget=forms.NumberInput(attrs={'class': 'input is-large'}),
+        label='Puerto SMTP (opcional)'
+    )
+    smtp_sender = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={'class': 'input is-large'}),
+        label='Email del remitente (opcional)'
     )
 
     def clean(self):
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
-        confirm_password = cleaned_data.get('confirm_password')
+        verify_password = cleaned_data.get('verify_password')
 
-        if password and confirm_password:
-            if password != confirm_password:
+        if password and verify_password:
+            if password != verify_password:
                 raise forms.ValidationError("Las contraseñas no coinciden.")
 
 
@@ -149,3 +179,61 @@ class UpdatePasswordForm(forms.Form):
         if new_password and confirm_password:
             if new_password != confirm_password:
                 raise forms.ValidationError("Las nuevas contraseñas no coinciden.")
+
+
+class CreateUserForm(forms.Form):
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={'class': 'input is-large'}),
+        label='Nombre de usuario'
+    )
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={'class': 'input is-large'}),
+        label='Correo electrónico',
+        required=False
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'input is-large'}),
+        label='Contraseña'
+    )
+    confirm_password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'class': 'input is-large'}),
+        label='Confirmar contraseña'
+    )
+    
+    USER_TYPE_CHOICES = [
+        ('regular', 'Usuario regular (solo visualización)'),
+        ('staff', 'Usuario staff (acceso al admin)'),
+        ('superuser', 'Superusuario (control total)'),
+    ]
+    
+    user_type = forms.ChoiceField(
+        choices=USER_TYPE_CHOICES,
+        widget=forms.Select(attrs={'class': 'select is-large'}),
+        label='Tipo de usuario',
+        initial='regular'
+    )
+    
+    alerts_enabled = forms.BooleanField(
+        widget=forms.CheckboxInput(attrs={'class': 'checkbox'}),
+        label='Habilitar alertas',
+        required=False,
+        initial=True
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('password')
+        confirm_password = cleaned_data.get('confirm_password')
+
+        if password and confirm_password:
+            if password != confirm_password:
+                raise forms.ValidationError("Las contraseñas no coinciden.")
+        
+        return cleaned_data
+
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError("Este nombre de usuario ya existe.")
+        return username

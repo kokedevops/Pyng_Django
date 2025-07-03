@@ -1,0 +1,214 @@
+{% extends "monitor/layout.html" %}
+
+{% block title %}Lista de Usuarios{% endblock %}
+
+{% block content %}
+<div class="hero is-info">
+    <div class="hero-body">
+        <div class="container">
+            <h1 class="title">
+                <i class="fas fa-users"></i>
+                Lista de Usuarios
+            </h1>
+            <h2 class="subtitle">
+                Gestión de usuarios del sistema
+            </h2>
+        </div>
+    </div>
+</div>
+
+<section class="section">
+    <div class="container">
+        <div class="level">
+            <div class="level-left">
+                <div class="level-item">
+                    <p class="subtitle is-5">
+                        <strong>Total: {{ users_with_profiles|length }} usuarios</strong>
+                    </p>
+                </div>
+            </div>
+            <div class="level-right">
+                <div class="level-item">
+                    <a href="{% url 'monitor:create_user' %}" class="button is-primary">
+                        <span class="icon">
+                            <i class="fas fa-user-plus"></i>
+                        </span>
+                        <span>Crear Usuario</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="box">
+            {% if users_with_profiles %}
+                <div class="table-container">
+                    <table class="table is-fullwidth is-striped is-hoverable">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-user"></i> Usuario</th>
+                                <th><i class="fas fa-envelope"></i> Email</th>
+                                <th><i class="fas fa-shield-alt"></i> Tipo</th>
+                                <th><i class="fas fa-bell"></i> Alertas</th>
+                                <th><i class="fas fa-calendar"></i> Último acceso</th>
+                                <th><i class="fas fa-clock"></i> Fecha registro</th>
+                                <th><i class="fas fa-check-circle"></i> Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in users_with_profiles %}
+                                {% with user=item.user alerts_enabled=item.alerts_enabled %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ user.username }}</strong>
+                                        {% if user.first_name or user.last_name %}
+                                            <br>
+                                            <small class="has-text-grey">
+                                                {{ user.first_name }} {{ user.last_name }}
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.email %}
+                                            <a href="mailto:{{ user.email }}">{{ user.email }}</a>
+                                        {% else %}
+                                            <span class="has-text-grey">Sin email</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_superuser %}
+                                            <span class="tag is-danger">
+                                                <i class="fas fa-crown"></i>
+                                                &nbsp;Superusuario
+                                            </span>
+                                        {% elif user.is_staff %}
+                                            <span class="tag is-warning">
+                                                <i class="fas fa-user-tie"></i>
+                                                &nbsp;Staff
+                                            </span>
+                                        {% else %}
+                                            <span class="tag is-info">
+                                                <i class="fas fa-user"></i>
+                                                &nbsp;Regular
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if alerts_enabled %}
+                                            <span class="tag is-success">
+                                                <i class="fas fa-check"></i>
+                                                &nbsp;Habilitadas
+                                            </span>
+                                        {% else %}
+                                            <span class="tag is-light">
+                                                <i class="fas fa-times"></i>
+                                                &nbsp;Deshabilitadas
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.last_login %}
+                                            {{ user.last_login|date:"d/m/Y H:i" }}
+                                        {% else %}
+                                            <span class="has-text-grey">Nunca</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ user.date_joined|date:"d/m/Y" }}
+                                    </td>
+                                    <td>
+                                        {% if user.is_active %}
+                                            <span class="tag is-success">
+                                                <i class="fas fa-check-circle"></i>
+                                                &nbsp;Activo
+                                            </span>
+                                        {% else %}
+                                            <span class="tag is-danger">
+                                                <i class="fas fa-times-circle"></i>
+                                                &nbsp;Inactivo
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="notification is-info">
+                    <p><strong>No hay usuarios registrados</strong></p>
+                    <p>Comienza creando el primer usuario del sistema.</p>
+                    <br>
+                    <a href="{% url 'monitor:create_user' %}" class="button is-primary">
+                        <span class="icon">
+                            <i class="fas fa-user-plus"></i>
+                        </span>
+                        <span>Crear Primer Usuario</span>
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Estadísticas rápidas -->
+        <div class="columns">
+            <div class="column">
+                <div class="box has-text-centered">
+                    <p class="heading">Superusuarios</p>
+                    <p class="title">
+                        {% widthratio users_with_profiles|length 1 1 as total_users %}
+                        {% for item in users_with_profiles %}
+                            {% if item.user.is_superuser %}
+                                {% if forloop.first %}1{% else %}{{ forloop.counter }}{% endif %}
+                            {% endif %}
+                        {% empty %}
+                            0
+                        {% endfor %}
+                    </p>
+                </div>
+            </div>
+            <div class="column">
+                <div class="box has-text-centered">
+                    <p class="heading">Staff</p>
+                    <p class="title">
+                        {% for item in users_with_profiles %}
+                            {% if item.user.is_staff and not item.user.is_superuser %}
+                                {% if forloop.first %}1{% else %}{{ forloop.counter }}{% endif %}
+                            {% endif %}
+                        {% empty %}
+                            0
+                        {% endfor %}
+                    </p>
+                </div>
+            </div>
+            <div class="column">
+                <div class="box has-text-centered">
+                    <p class="heading">Regulares</p>
+                    <p class="title">
+                        {% for item in users_with_profiles %}
+                            {% if not item.user.is_staff %}
+                                {% if forloop.first %}1{% else %}{{ forloop.counter }}{% endif %}
+                            {% endif %}
+                        {% empty %}
+                            0
+                        {% endfor %}
+                    </p>
+                </div>
+            </div>
+            <div class="column">
+                <div class="box has-text-centered">
+                    <p class="heading">Con Alertas</p>
+                    <p class="title">
+                        {% for item in users_with_profiles %}
+                            {% if item.alerts_enabled %}
+                                {% if forloop.first %}1{% else %}{{ forloop.counter }}{% endif %}
+                            {% endif %}
+                        {% empty %}
+                            0
+                        {% endfor %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

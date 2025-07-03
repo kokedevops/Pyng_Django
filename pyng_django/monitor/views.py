@@ -20,7 +20,7 @@ from django.contrib.auth import views as auth_views
 from .forms import (AddHostsForm, DeleteHostForm, FirstTimeSetupForm,
                     PollingConfigForm, SelectThemeForm, SmtpConfigForm,
                     SmtpTestForm, UpdateEmailForm, UpdateHostForm,
-                    UpdatePasswordForm)
+                    UpdatePasswordForm, CreateUserForm)
 from .models import (HostAlerts, Hosts, PollHistory, Polling, Profile,
                      SmtpServer, WebThemes)
 
@@ -355,3 +355,101 @@ class CustomLoginView(auth_views.LoginView):
         # Agregar nuestro contexto personalizado
         context = add_context(context)
         return context
+
+# --- Vistas de Gestión de Usuarios ---
+
+@login_required
+def create_user_view(request):
+    """Vista para crear nuevos usuarios (solo para administradores)"""
+    # Verificar que el usuario actual sea superusuario
+    if not request.user.is_superuser:
+        messages.error(request, 'No tienes permisos para crear usuarios.')
+        return redirect('monitor:index')
+    
+    if request.method == 'POST':
+        form = CreateUserForm(request.POST)
+        if form.is_valid():
+            try:
+                # Crear el usuario
+                username = form.cleaned_data['username']
+                email = form.cleaned_data['email']
+                password = form.cleaned_data['password']
+                user_type = form.cleaned_data['user_type']
+                alerts_enabled = form.cleaned_data['alerts_enabled']
+                
+                # Determinar permisos según el tipo de usuario
+                is_staff = user_type in ['staff', 'superuser']
+                is_superuser = user_type == 'superuser'
+                
+                # Crear usuario
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    is_staff=is_staff,
+                    is_superuser=is_superuser
+                )
+                
+                # Crear perfil del usuario
+                Profile.objects.create(
+                    user=user,
+                    alerts_enabled=alerts_enabled
+                )
+                
+                # Mensaje de éxito
+                user_type_display = {
+                    'regular': 'Usuario regular',
+                    'staff': 'Usuario staff', 
+                    'superuser': 'Superusuario'
+                }[user_type]
+                
+                messages.success(
+                    request, 
+                    f'Usuario "{username}" creado exitosamente como {user_type_display}.'
+                )
+                
+                # Redirigir a la vista de crear usuario para crear más
+                return redirect('monitor:create_user')
+                
+            except Exception as e:
+                messages.error(request, f'Error al crear el usuario: {str(e)}')
+    else:
+        form = CreateUserForm()
+    
+    context = add_context({
+        'form': form,
+        'page_title': 'Crear Usuario'
+    })
+    
+    return render(request, 'monitor/createUser.html', context)
+
+@login_required
+def list_users_view(request):
+    """Vista para listar todos los usuarios (solo para administradores)"""
+    # Verificar que el usuario actual sea superusuario
+    if not request.user.is_superuser:
+        messages.error(request, 'No tienes permisos para ver la lista de usuarios.')
+        return redirect('monitor:index')
+    
+    # Obtener todos los usuarios con sus perfiles
+    users = User.objects.all().order_by('username')
+    users_with_profiles = []
+    
+    for user in users:
+        try:
+            profile = Profile.objects.get(user=user)
+            alerts_enabled = profile.alerts_enabled
+        except Profile.DoesNotExist:
+            alerts_enabled = False
+        
+        users_with_profiles.append({
+            'user': user,
+            'alerts_enabled': alerts_enabled
+        })
+    
+    context = add_context({
+        'users_with_profiles': users_with_profiles,
+        'page_title': 'Lista de Usuarios'
+    })
+    
+    return render(request, 'monitor/listUsers.html', context)

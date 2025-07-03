@@ -196,6 +196,21 @@
                                         </a>
                                     </div>
                                 </div>
+                                {% if user.is_superuser %}
+                                <div class="navbar-item has-dropdown is-hoverable">
+                                    <a class="navbar-link">
+                                        <i class="fas fa-users"></i>&nbsp;Usuarios
+                                    </a>
+                                    <div class="navbar-dropdown">
+                                        <a href="{% url 'monitor:list_users' %}" class="navbar-item">
+                                            <i class="fas fa-list"></i>&nbsp;Lista de Usuarios
+                                        </a>
+                                        <a href="{% url 'monitor:create_user' %}" class="navbar-item">
+                                            <i class="fas fa-user-plus"></i>&nbsp;Crear Usuario
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endif %}
                             {% endif %}
                         </div>
 
