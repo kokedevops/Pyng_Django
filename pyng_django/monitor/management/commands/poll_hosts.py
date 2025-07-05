@@ -11,6 +11,8 @@ from django.utils import timezone
 from concurrent.futures import ThreadPoolExecutor
 
 from monitor.models import Hosts, Polling, PollHistory, HostAlerts, Profile
+from monitor.utils import poll_host_universal
+from monitor.utils import poll_host_smart  # Importar la nueva función
 
 
 def get_hostname(ip_address):
@@ -38,21 +40,24 @@ def poll_host_ip(host_ip, count=3):
 
 
 def poll_host_task(host):
-    status = poll_host_ip(host.ip_address)
+    # Usar la función universal que maneja IP, IP:Puerto y URLs web
+    status = poll_host_universal(host.ip_address)
     poll_time = time.strftime('%Y-%m-%d %T')
 
-    # Crear historial
+    # Crear historial SIEMPRE
     PollHistory.objects.create(
         host=host,
         poll_time=poll_time,
         poll_status=status
     )
 
-    # Comprobar si el estado ha cambiado
-    if host.status != status:
+    # Actualizar SIEMPRE el last_poll y el status actual
+    host.last_poll = poll_time
+    status_changed = host.status != status
+    
+    if status_changed:
         host.previous_status = host.status
         host.status = status
-        host.last_poll = poll_time
         host.save()
 
         # Crear alerta si están habilitadas
@@ -78,6 +83,10 @@ def poll_host_task(host):
                     alert.save()
             except Exception as e:
                 print(f"Error sending Telegram alert: {e}")
+    else:
+        # Si no cambió el estado, solo actualizar el last_poll
+        host.status = status  # Asegurar que esté sincronizado
+        host.save()
 
 
 class Command(BaseCommand):

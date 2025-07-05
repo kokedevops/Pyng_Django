@@ -49,8 +49,9 @@
                     var json = {
                         "columns": [
                             {"data": "hostname", "title": "Nombre Host"},
-                            {"data": "ip_address", "title": "Direccion IP"},
-                            {"data": "last_poll", "title": "Ultima Vista"},
+                            {"data": "ip_address", "title": "Dirección / URL"},
+                            {"data": "host_type", "title": "Tipo"},
+                            {"data": "last_poll", "title": "Última Vista"},
                             {"data": "status", "title": "Estado"}
                         ],
                         "data": json_data
@@ -61,25 +62,31 @@
                     }
 
                     var table = $('#ip-status').DataTable({
-                        "order": [[3, "asc"]],
+                        "order": [[4, "asc"]],
                         "iDisplayLength": 50,
                         data: json.data,
                         columns: json.columns,
                         searching: false,
                         stateSave: true,
                         'rowCallback': function (row, data, index) {
-                            var status_col = $(row).find('td:eq(3)')
-                            var last_poll_col = $(row).find('td:eq(2)')
+                            var status_col = $(row).find('td:eq(4)')
+                            var last_poll_col = $(row).find('td:eq(3)')
+                            var host_type_col = $(row).find('td:eq(2)')
                             var host = data['hostname']
+
+                            // Style host type column
+                            host_type_col.addClass('has-text-centered');
 
                             // Change status row to use up/down circles and status colors
                             status_col.empty();
-                            if (data['status'] == '🔴 Down 🔴') {
+                            if (data['status'].startsWith('🔴')) {
                                 status_col.append('<i class="fas fa-arrow-circle-down"></i>');
                                 $(row).addClass('has-background-danger has-text-white');
-                            } else {
+                            } else if (data['status'].startsWith('🟢')) {
                                 status_col.addClass("has-text-success");
                                 status_col.append('<i class="fas fa-arrow-circle-up"></i>');
+                            } else {
+                                status_col.append('<i class="fas fa-question-circle"></i>');
                             }
 
                             // Add link to load poll history for host

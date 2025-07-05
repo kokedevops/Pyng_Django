@@ -2,8 +2,6 @@ import smtplib
 import time
 from concurrent.futures import ThreadPoolExecutor # Keep this import
 from email.mime.text import MIMEText
-from ipaddress import AddressValueError
-from ipaddress import ip_address as ip_address_validator
 
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
@@ -24,7 +22,7 @@ from .forms import (AddHostsForm, DeleteHostForm, FirstTimeSetupForm,
 from .models import (HostAlerts, Hosts, PollHistory, Polling, Profile,
                      SmtpServer, WebThemes)
 
-from .utils import get_hostname, poll_host_ip # Import from new utils file
+from .utils import get_hostname, poll_host_ip, validate_ip_port, poll_host_smart, validate_web_or_ip, poll_host_universal # Import from new utils file
 # --- Constantes y Helpers ---
 
 PASSWORD_POLICY = {
@@ -129,26 +127,18 @@ def configure_polling(request):
     """Configurar intervalo de sondeo."""
     polling_config = Polling.objects.first()
     if request.method == 'POST':
-        form = PollingConfigForm(request.POST)
-        if form.is_valid() and polling_config:
+        form = PollingConfigForm(request.POST, instance=polling_config)
+        if form.is_valid():
             try:
-                if form.cleaned_data.get('interval'):
-                    polling_config.poll_interval = form.cleaned_data['interval']
-                if form.cleaned_data.get('retention_days'):
-                    polling_config.history_truncate_days = form.cleaned_data['retention_days']
-                polling_config.save()
+                form.save()
                 messages.success(request, 'Configuración de sondeo actualizada correctamente.')
-            except Exception:
-                messages.error(request, 'Fallo al actualizar la configuración de sondeo.')
+            except Exception as e:
+                messages.error(request, f'Fallo al actualizar la configuración de sondeo: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
         return redirect(reverse('monitor:configure_polling'))
     else:
-        initial_data = {}
-        if polling_config:
-            initial_data = {
-                'interval': polling_config.poll_interval,
-                'retention_days': polling_config.history_truncate_days
-            }
-        form = PollingConfigForm(initial=initial_data)
+        form = PollingConfigForm(instance=polling_config)
         context = add_context({'form': form, 'polling_config': polling_config})
         return render(request, 'monitor/pollingConfig.html', context)
 
@@ -235,33 +225,54 @@ def add_hosts(request):
     if request.method == 'POST':
         form = AddHostsForm(request.POST)
         if form.is_valid():
-            ip_list = form.cleaned_data['ip_address'].splitlines()
+            address_list = form.cleaned_data['ip_address'].splitlines()
             
             # Helper function to be executed in threads
-            def _process_single_ip(ip_address_str):
-                status = poll_host_ip(ip_address_str)
+            def _process_single_address(address_str):
+                # Usar la nueva función universal para verificar IP, IP:Puerto o URL
+                status = poll_host_universal(address_str)
                 current_time = time.strftime('%Y-%m-%d %T')
-                hostname = get_hostname(ip_address_str)
-                return Hosts(ip_address=ip_address_str, hostname=hostname, status=status, last_poll=current_time)
+                
+                # Para el hostname, determinar según el tipo de dirección
+                from .utils import is_web_url
+                if is_web_url(address_str):
+                    # Es una URL web, usar la parte del dominio como hostname
+                    hostname = address_str.replace('https://', '').replace('http://', '').split('/')[0]
+                else:
+                    # Es IP o IP:Puerto, obtener hostname por DNS
+                    ip_only = address_str.split(':')[0] if ':' in address_str else address_str
+                    hostname = get_hostname(ip_only)
+                
+                return Hosts(ip_address=address_str, hostname=hostname, status=status, last_poll=current_time)
 
             with ThreadPoolExecutor(max_workers=100) as pool:
-                for ip_str in ip_list:
-                    ip_str = ip_str.strip()
-                    if not ip_str: continue
+                for addr_str in address_list:
+                    addr_str = addr_str.strip()
+                    if not addr_str: continue
                     try:
-                        ip_address_validator(ip_str)
-                        if Hosts.objects.filter(ip_address=ip_str).exists():
-                            messages.warning(request, f'Direccion IP {ip_str} ya existe.')
+                        # Usar la nueva función de validación universal
+                        validated_address, address_type = validate_web_or_ip(addr_str)
+                        
+                        if Hosts.objects.filter(ip_address=addr_str).exists():
+                            messages.warning(request, f'Dirección {addr_str} ya existe.')
                         else:
                             # Submit the task to the thread pool
-                            future = pool.submit(_process_single_ip, ip_str)
+                            future = pool.submit(_process_single_address, addr_str)
                             new_host = future.result()
                             new_host.save()
-                            messages.success(request, f"Agregado correctamente {new_host.ip_address} ({new_host.hostname})")
-                    except AddressValueError:
-                        messages.error(request, f'{ip_str} No es una IP valida')
+                            
+                            if address_type == 'web':
+                                messages.success(request, f"Agregado correctamente {new_host.ip_address} ({new_host.hostname}) - Sitio Web")
+                            elif ':' in addr_str:
+                                port = addr_str.split(':')[1]
+                                messages.success(request, f"Agregado correctamente {new_host.ip_address} ({new_host.hostname}) - Puerto: {port}")
+                            else:
+                                messages.success(request, f"Agregado correctamente {new_host.ip_address} ({new_host.hostname})")
+                                
+                    except ValueError as e:
+                        messages.error(request, f'{addr_str}: {str(e)}')
                     except Exception as e:
-                        messages.error(request, f"Fallo al agregar {ip_str}: {e}")
+                        messages.error(request, f"Fallo al agregar {addr_str}: {e}")
         return redirect(reverse('monitor:add_hosts'))
     else:
         form = AddHostsForm()
@@ -274,13 +285,28 @@ def update_hosts(request):
         if form.is_valid():
             try:
                 host = Hosts.objects.get(id=form.cleaned_data['id'])
+                
+                # Validar la nueva dirección si se proporciona
+                new_address = form.cleaned_data.get('ip_address')
+                if new_address:
+                    try:
+                        # Usar nuestra función de validación universal
+                        validated_address, address_type = validate_web_or_ip(new_address)
+                        host.ip_address = new_address
+                    except ValueError as e:
+                        messages.error(request, f'Error en la dirección: {str(e)}')
+                        return redirect(reverse('monitor:update_hosts'))
+                
                 host.hostname = form.cleaned_data.get('hostname', host.hostname)
-                host.ip_address = form.cleaned_data.get('ip_address', host.ip_address)
-                host.alerts_enabled = form.cleaned_data['alerts'] == 'True'
+                host.alerts_enabled = form.cleaned_data.get('alerts_enabled', host.alerts_enabled)
                 host.save()
-                messages.success(request, f'Successfully updated host {host.hostname}')
+                messages.success(request, f'Host {host.hostname} actualizado exitosamente')
             except Hosts.DoesNotExist:
-                messages.error(request, 'Host not found.')
+                messages.error(request, 'Host no encontrado.')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar el host: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
         return redirect(reverse('monitor:update_hosts'))
     else:
         hosts = Hosts.objects.all().order_by('hostname')
@@ -292,12 +318,16 @@ def delete_host(request):
     form = DeleteHostForm(request.POST)
     if form.is_valid():
         try:
-            host = Hosts.objects.get(id=form.cleaned_data['id'])
+            host = Hosts.objects.get(id=form.cleaned_data['host_id'])
             hostname = host.hostname
             host.delete()
-            messages.success(request, f'Successfully deleted {hostname}')
+            messages.success(request, f'Host {hostname} eliminado exitosamente')
         except Hosts.DoesNotExist:
-            messages.error(request, 'Host not found.')
+            messages.error(request, 'Host no encontrado.')
+        except Exception as e:
+            messages.error(request, f'Error al eliminar el host: {str(e)}')
+    else:
+        messages.error(request, 'Formulario inválido.')
     return redirect(reverse('monitor:update_hosts'))
 
 # --- Vistas de SMTP ---

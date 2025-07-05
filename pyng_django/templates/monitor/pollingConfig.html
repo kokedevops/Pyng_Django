@@ -20,19 +20,33 @@
             <form method="POST" action="{% url 'monitor:configure_polling' %}" novalidate>
                 {% csrf_token %}
                 <div class="field">
+                    <label class="label">{{ form.poll_interval.label }}</label>
                     <div class="control">
-                        {{ form.interval.label_tag }}
-                        {{ form.interval }}
+                        {{ form.poll_interval }}
                         <p class="help">La cantidad de tiempo en segundos entre los hosts de sondeo</p>
                     </div>
+                    {% if form.poll_interval.errors %}
+                        <p class="help is-danger">
+                            {% for error in form.poll_interval.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </p>
+                    {% endif %}
                 </div>
                 <div class="field">
+                    <label class="label">{{ form.history_truncate_days.label }}</label>
                     <div class="control">
-                        {{ form.retention_days.label_tag }}
-                        {{ form.retention_days }}
+                        {{ form.history_truncate_days }}
                         <p class="help">La cantidad de días para mantener registros del historial de encuestas para cada
                             host.</p>
                     </div>
+                    {% if form.history_truncate_days.errors %}
+                        <p class="help is-danger">
+                            {% for error in form.history_truncate_days.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </p>
+                    {% endif %}
                 </div>
                 <div class="control">
                     <button type="submit" class="button is-info is-medium">Actualizar</button>
@@ -43,8 +57,8 @@
     <script>
         // Update placeholders to current polling config values
         $(document).ready(function () {
-            $("#id_interval").attr("placeholder", "{{ polling_config.poll_interval }}")
-            $("#id_retention_days").attr("placeholder", "{{ polling_config.history_truncate_days }}")
+            $("#id_poll_interval").attr("placeholder", "{{ polling_config.poll_interval }}")
+            $("#id_history_truncate_days").attr("placeholder", "{{ polling_config.history_truncate_days }}")
         })
     </script>
 {% endblock %}

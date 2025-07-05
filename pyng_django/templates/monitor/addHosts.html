@@ -12,7 +12,13 @@
                     <div class="control">
                         {{ form.ip_address.label_tag }}
                         {{ form.ip_address }}
-                        <p class="help">Una direccion IP por linea</p>
+                        <p class="help">{{ form.ip_address.help_text }}</p>
+                        <p class="help">
+                            <strong>Ejemplos:</strong><br>
+                            🖥️ <strong>IPs:</strong> 192.168.1.1, 8.8.8.8<br>
+                            🖥️ <strong>IP:Puerto:</strong> 192.168.1.1:8080, 127.0.0.1:3000<br>
+                            🌐 <strong>URLs:</strong> https://google.com, devopsdayschile.cl
+                        </p>
                     </div>
                 </div>
                 <div class="control">

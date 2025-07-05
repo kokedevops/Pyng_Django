@@ -3,16 +3,28 @@ from .models import Hosts, PollHistory, HostAlerts
 
 
 def get_all_hosts(request):
-    """Get all hosts"""
-    hosts = list(Hosts.objects.values('id', 'hostname', 'ip_address', 'last_poll', 'status'))
+    """Get all hosts with type information"""
+    hosts = []
+    for host in Hosts.objects.all():
+        host_type = "🌐 Web" if host.is_web_url() else "🖥️ IP"
+        hosts.append({
+            'id': host.id,
+            'hostname': host.hostname,
+            'ip_address': host.ip_address,
+            'host_type': host_type,
+            'last_poll': host.last_poll,
+            'status': host.status
+        })
     return JsonResponse({'data': hosts})
 
 
 def get_host_counts(request):
     """Get host total, available, unavailable host counts"""
     total = Hosts.objects.count()
-    num_up = Hosts.objects.filter(status='🟢 Up 🟢').count()
-    num_down = Hosts.objects.filter(status='🔴 Down 🔴').count()
+    # Count hosts that are up (status starts with green circle)
+    num_up = Hosts.objects.filter(status__startswith='🟢').count()
+    # Count hosts that are down (status starts with red circle)
+    num_down = Hosts.objects.filter(status__startswith='🔴').count()
     data = {'total_hosts': total, 'available_hosts': num_up, 'unavailable_hosts': num_down}
     return JsonResponse(data)
 

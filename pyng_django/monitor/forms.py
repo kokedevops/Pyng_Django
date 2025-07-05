@@ -33,18 +33,14 @@ class PollingConfigForm(forms.ModelForm):
         }
 
 
-class AddHostsForm(forms.ModelForm):
+class AddHostsForm(forms.Form):
     # This field is not on the model, so we define it here.
-    # It will be used to process multiple IPs in the view.
+    # It will be used to process multiple addresses in the view.
     ip_address = forms.CharField(
-        label='Direcciones IP',
-        widget=forms.Textarea(attrs={'class': 'textarea is-medium', 'rows': 10})
+        label='Direcciones a monitorear (una por línea)',
+        widget=forms.Textarea(attrs={'class': 'textarea is-medium', 'rows': 10}),
+        help_text='Puede agregar: IPs (192.168.1.1), IP:Puerto (192.168.1.1:8080), o URLs web (https://ejemplo.com)'
     )
-
-    class Meta:
-        model = Hosts
-        # We only need the textarea for bulk adding.
-        fields = ['ip_address']
 
 
 class DeleteHostForm(forms.Form):
@@ -151,10 +147,21 @@ class UpdateHostForm(forms.ModelForm):
             'alerts_enabled': forms.CheckboxInput(attrs={'class': 'checkbox'}),
         }
         labels = {
-            'ip_address': 'Dirección IP',
+            'ip_address': 'Dirección (IP, IP:Puerto, o URL web)',
             'hostname': 'Nombre del host',
             'alerts_enabled': 'Alertas habilitadas',
         }
+    
+    def clean_ip_address(self):
+        address = self.cleaned_data['ip_address']
+        
+        # Usar la función de validación universal
+        from .utils import validate_web_or_ip
+        try:
+            validated_address, address_type = validate_web_or_ip(address)
+            return address  # Retornar el formato original si es válido
+        except ValueError as e:
+            raise forms.ValidationError(str(e))
 
 
 class UpdatePasswordForm(forms.Form):

@@ -13,16 +13,48 @@ class Profile(models.Model):
 
 
 class Hosts(models.Model):
-    '''Hosts'''
-    ip_address = models.CharField(max_length=15, unique=True, null=False)
+    '''Hosts - Puede monitorear IPs, IP:Puerto, o URLs web'''
+    ip_address = models.CharField(max_length=255, unique=True, null=False)  # Aumentado para URLs
     hostname = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=10, blank=True, null=True)
+    port = models.IntegerField(blank=True, null=True)  # Puerto opcional para monitoreo de servicios
+    status = models.CharField(max_length=50, blank=True, null=True)  # Aumentado para mensajes de error HTTP
     last_poll = models.CharField(max_length=20, blank=True, null=True)
-    previous_status = models.CharField(max_length=10, blank=True, null=True)
+    previous_status = models.CharField(max_length=50, blank=True, null=True)
     alerts_enabled = models.BooleanField(default=True)
 
     def __str__(self):
         return self.hostname or self.ip_address
+
+    def is_web_url(self):
+        """Determina si este host es una URL web"""
+        from .utils import is_web_url
+        return is_web_url(self.ip_address)
+
+    def get_ip_only(self):
+        """Obtener solo la IP sin el puerto (para hosts IP)"""
+        if self.is_web_url():
+            return self.ip_address  # Para URLs, devolver la URL completa
+        return self.ip_address.split(':')[0] if ':' in self.ip_address else self.ip_address
+    
+    def get_port(self):
+        """Obtener el puerto de la IP:Puerto o None"""
+        if self.is_web_url():
+            return None  # URLs no tienen puerto separado
+        if ':' in self.ip_address:
+            try:
+                return int(self.ip_address.split(':')[1])
+            except (ValueError, IndexError):
+                return None
+        return self.port
+
+    def get_display_name(self):
+        """Obtener nombre para mostrar (hostname o dirección)"""
+        if self.hostname:
+            return self.hostname
+        elif self.is_web_url():
+            return self.ip_address.replace('https://', '').replace('http://', '')
+        else:
+            return self.ip_address
 
     class Meta:
         verbose_name_plural = "Hosts"
