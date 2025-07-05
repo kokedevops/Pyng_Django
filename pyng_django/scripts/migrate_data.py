@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 
 # Setup Django
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent  # Ir un nivel arriba desde scripts/
 sys.path.append(str(project_root))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pyng_django.settings')
 

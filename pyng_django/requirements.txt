@@ -1,4 +1,20 @@
-Django
-password-strength
-psycopg2-binary
-python-decouple
+# PYNG - Sistema de Monitoreo de Red
+# Dependencias de Python
+
+# Framework principal
+Django>=4.2,<5.0
+
+# Base de datos
+psycopg2-binary>=2.9.0
+
+# Configuración
+python-decouple>=3.8
+
+# Validación de contraseñas
+password-strength>=0.0.3
+
+# Monitoreo web HTTP/HTTPS
+requests>=2.31.0
+
+# Utilidades del sistema
+psutil>=5.9.0
